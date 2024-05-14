@@ -1,0 +1,109 @@
+Варіант 2
+Завдання: 
+Створити запити типу:
+•	SELECT на базі однієї таблиці з використанням сортування, накладенням умов зі зв’язками OR та AND.
+•	SELECT з виводом обчислюваних полів (виразів) в колонках результату.
+•	SELECT на базі кількох таблиць з використанням сортування, накладенням умов зі зв’язками OR та AND.
+•	SELECT на базі кількох таблиць з типом поєднання Outer Join.
+•	SELECT з використанням операторів Like, Between, In, Exists, All, Any.
+•	SELECT з використанням підсумовування та групування.
+•	SELECT з використанням під-запитів в частині Where.
+•	SELECT з використанням під-запитів в частині From.
+•	ієрархічний SELECT запит.
+•	SELECT запит типу CrossTab.
+•	UPDATE на базі однієї таблиці. 
+•	UPDATE на базі кількох таблиць.
+•	Append (INSERT) для додавання записів з явно вказаними значеннями.
+•	Append (INSERT) для додавання записів з інших таблиць.
+•	DELETE для видалення всіх даних з таблиці.
+•	DELETE для видалення вибраних записів таблиці.
+Запити можуть бути складними і поєднувати у собі одразу декілька типів (згідно завдання). У роботі має бути не менше двох таких складних запитів. При цьому обов’язково необхідно відобразити у звіті відповідні особливості запиту.
+
+1.	SELECT * FROM tenants WHERE company_name LIKE 'A%' AND (legal_address LIKE '%Street%' OR director = 'John Doe') ORDER BY legal_address;
+2.	SELECT company_name, CONCAT('Director: ', director) AS director_info, LENGTH(legal_address) AS address_length FROM tenants;
+3.	SELECT t.company_name, p.number FROM tenants t JOIN rent r ON t.id = r.tenant_id JOIN premises p ON r.premise_id = p.id WHERE (t.company_name LIKE 'A%' OR p.number BETWEEN 100 AND 200) AND r.lease_term >= 12 ORDER BY t.company_name, p.number;
+4.	SELECT t.company_name, r.id, b.amount_pay FROM tenants t LEFT JOIN rent r ON t.id = r.tenant_id LEFT JOIN bill b ON r.id = b.rent_id;
+5.	SELECT * FROM premises WHERE area BETWEEN 100 AND 200 AND premises_type_id IN (SELECT id FROM premises_type WHERE premise_type = 'Office');
+SELECT * FROM tenants 
+WHERE director LIKE '%hnson%' -- Поверне записи, де ім'я директора містить 'hnson' 
+AND EXISTS (
+ SELECT * FROM rent WHERE rent.tenant_id = tenants.id 
+AND lease_term > ALL ( 
+ SELECT AVG(lease_term) -- Вибираємо ті оренди, у яких термін оренди більший за середнє значення терміну оренди по всіх орендах 
+ FROM rent) );
+6.	SELECT tenant_id, COUNT(*) AS rent_count, AVG(lease_term) AS avg_lease_term FROM rent GROUP BY tenant_id;
+7.	SELECT * FROM tenants WHERE id IN (SELECT tenant_id FROM rent WHERE lease_term > 12);
+8.	SELECT t.company_name, r.lease_term FROM (SELECT * FROM tenants WHERE director = 'John Doe') AS t JOIN rent r ON t.id = r.tenant_id;
+9.	ієрархічний SELECT запит.
+WITH RECURSIVE RentHierarchy AS (
+    SELECT 
+        r.id AS rent_id, 
+        r.premise_id, 
+        r.tenant_id, 
+        r.lease_term, 
+        r.start_date, 
+        r.end_date, 
+        p.id AS p_premise_id,  
+        p.number, 
+        p.area, 
+        p.premises_type_id, 
+        0 AS level
+    FROM rent r
+    JOIN premises p ON r.premise_id = p.id
+
+    UNION ALL
+
+    SELECT 
+        rh.rent_id, 
+        r.premise_id, 
+        r.tenant_id, 
+        r.lease_term, 
+        r.start_date, 
+        r.end_date, 
+        p.id AS p_premise_id, 
+        p.number, 
+        p.area, 
+        p.premises_type_id, 
+        rh.level + 1
+    FROM RentHierarchy rh
+    JOIN rent r ON rh.premise_id = r.id
+    JOIN premises p ON r.premise_id = p.id
+    WHERE rh.level < 1
+)
+SELECT DISTINCT
+    rent_id, 
+    p_premise_id AS premise_id, 
+    tenant_id, 
+    lease_term, 
+    start_date, 
+    end_date, 
+    number, 
+    area, 
+    premises_type_id, 
+    level
+FROM RentHierarchy;
+10.	SELECT premises_type.premise_type, 
+       SUM(CASE WHEN status = 'Paid' THEN 1 ELSE 0 END) AS paid_count, 
+       SUM(CASE WHEN status = 'Unpaid' THEN 1 ELSE 0 END) AS unpaid_count 
+FROM bill 
+JOIN rent ON bill.rent_id = rent.id 
+JOIN premises ON rent.premise_id = premises.id 
+JOIN premises_type ON premises.premises_type_id = premises_type.id 
+GROUP BY premises_type.premise_type;
+11.	UPDATE tenants SET director = 'New Director' WHERE id = 1;
+12.	UPDATE rent JOIN tenants ON rent.tenant_id = tenants.id SET tenants.characteristics = 'Updated characteristics' WHERE tenants.id = 2;
+13.	INSERT INTO tenants (company_name, legal_address, bank_account, director, characteristics) VALUES ('New Company', '456 Maple Street', '9876543210', 'Alice Smith', 'Newly added company with no history');
+•	Створимо таблицю для прикладу запиту
+CREATE TABLE temporary_tenants ( 
+id INT PRIMARY KEY AUTO_INCREMENT,
+company_name VARCHAR(255) NOT NULL,address VARCHAR(255) NOT NULL,
+bank_account VARCHAR(50) NOT NULL,
+director VARCHAR(100) NOT NULL,
+characteristics TEXT);
+•	Додамо деякі дані
+INSERT INTO temporary_tenants (company_name, address, bank_account, director, characteristics) VALUES  ('EFG Corporation', '321 Maple Avenue', '2468013579', 'Emily Johnson', 'Medium-sized company specializing in technology services');
+14.	INSERT INTO tenants (company_name, legal_address, bank_account, director) 
+SELECT company_name, address, bank_account, director
+FROM temporary_tenants;
+15.	DELETE FROM temporary_tenants;
+16.	DELETE FROM tenants WHERE company_name = 'EFG Corporation';

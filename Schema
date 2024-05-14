@@ -1,0 +1,164 @@
+Варіант 2
+Завдання: 
+1) Створити концептуальну та логічну модель предметної області згідно з описом, отриманим в викладача (відповідно до обраної предметної області).
+2) Створити базу даних: створити таблиці, задати всі потрібні обмеження, створити зв’язки між таблицями. Схема бази даних повинна містити приклади використання сурогатних ключів створених за допомогою послідовностей (SEQUENCES). Схема бази даних повинна містити приклади використання всіх можливих способів перевірок обмеження цілісності, зокрема зовнішні ключі, вимоги на унікальність полів, перевірки типу CHECK, перевірки типу NULL/NOT NULL, тощо.
+3) Ввести по декілька записів в кожну таблицю, проаналізувати цілісність даних.
+Виконання:
+1)	схема даних
+
+2)	SQL-запити для створення та наповнення таблиць.
+mysql -u user_name -p
+user_password
+
+CREATE DATABASE rentdb;
+SHOW DATABASES;
+USE rentdb;
+-- Create table for Tenant(Орендар)
+CREATE TABLE tenants (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    company_name VARCHAR(255) NOT NULL,
+    legal_address VARCHAR(255) NOT NULL,
+    bank_account VARCHAR(50) NOT NULL,
+    director VARCHAR(100) NOT NULL,
+    characteristics TEXT
+);	
+-- Create table for premises_type(Тип приміщення)
+CREATE TABLE premises_type (
+ id INT PRIMARY KEY AUTO_INCREMENT,
+premise_type VARCHAR(50) NOT NULL,
+price_per_sqm DECIMAL(10, 2) NOT NULL
+);
+
+-- Create table for Premises(Приміщення)
+CREATE TABLE premises (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    number INT NOT NULL,
+    area DECIMAL(10, 2) NOT NULL,
+    premises_type_id INT NOT NULL,
+    FOREIGN KEY (premises_type_id) REFERENCES premises_type (id)
+);
+-- Create table for Rent(Оренда)
+CREATE TABLE rent (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    premise_id INT NOT NULL,
+    tenant_id INT NOT NULL,
+    lease_term INT,
+    start_date DATE,
+    end_date DATE,    
+    FOREIGN KEY (premise_id) REFERENCES premises(id),
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+);
+-- Create table for Bill(Рахунок)
+CREATE TABLE bill (
+ id INT PRIMARY KEY AUTO_INCREMENT,
+ rent_id INT NOT NULL, 
+ amount_pay DECIMAL(10,2) NOT NULL,
+  bill_date DATE NOT NULL,
+  tax DECIMAL(10,2) NOT NULL,
+  payment_date DATE,
+  payment_amount DECIMAL(10,2),
+  status ENUM('Paid', 'Unpaid') DEFAULT 'Unpaid', 
+  FOREIGN KEY (rent_id) REFERENCES rent(id)
+);
+-- Create table for Penya (Пеня)
+CREATE TABLE penya (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    bill_id INT NOT NULL, 
+    amount_penalty DECIMAL(10,2) NOT NULL,
+    penalty_date DATE NOT NULL,
+    FOREIGN KEY (bill_id) REFERENCES Bill (id)
+);
+SHOW TABLES;
+SELECT * FROM tenants;
+-- Вставка записів у таблицю "tenants" (Орендарі) 
+INSERT INTO tenants (company_name, legal_address, bank_account, director, characteristics) 
+VALUES 
+('ABC Company', '123 Main Street, City, Country', '1234567890', 'John Doe', 'Well-established company with good credit history'),
+('XYZ Corporation', '456 Oak Avenue, City, Country', '0987654321', 'Jane Smith', 'Start-up with promising growth potential'),
+('LMN Enterprises', '789 Elm Street, City, Country', '1357924680', 'Michael Johnson', 'Large corporation with diverse business interests');
+SELECT * FROM tenants;
+SELECT * FROM premises_type;
+-- Вставка записів у таблицю premises_type
+INSERT INTO premises_type (premise_type, price_per_sqm)
+VALUES
+    ('Office', 15.00),
+    ('Warehouse', 10.00),
+    ('Retail', 20.00);
+SELECT * FROM premises_type;
+
+SELECT * FROM premises;
+-- Вставка записів у таблицю Premises
+INSERT INTO Premises (number, area, premises_type_id)
+VALUES
+    ('101', 100, 1),
+    ('201', 200, 2),
+    ('301', 150, 3);
+SELECT * FROM premises;
+
+SELECT * FROM rent;
+-- Вставка записів у таблицю "rent" (Оренда)
+INSERT INTO Rent (premise_id, tenant_id, lease_term, start_date, end_date)
+VALUES 
+   (1, 1, 12, '2024-03-01', '2025-03-01'),
+   (2, 2, 6, '2023-04-15', '2024-10-15'), 
+   (3, 3, 24, '2024-02-01', '2026-02-01');
+SELECT * FROM rent;
+SELECT * FROM bill;
+-- Вставка записів у таблицю "bill" (Рахунок) 
+INSERT INTO bill (rent_id, amount_pay, bill_date, tax, payment_date, payment_amount, status) 
+VALUES 
+  (1, 2000.00, '2024-02-01', 400.00, '2024-02-10', 2400.00, 'Paid'), 
+  (2, 5000.00, '2024-02-05', 1000.00, NULL, NULL, 'Unpaid'), 
+  (3, 3000.00, '2024-02-10', 600.00, NULL, NULL, 'Unpaid');
+SELECT * FROM bill;
+SELECT * FROM penya;
+ -- Вставка записів у таблицю "penya" (Пеня) 
+INSERT INTO penya (bill_id, amount_penalty, penalty_date) 
+VALUES 
+  (1, 50.00, '2024-02-15'), 
+  (2, 100.00, '2024-02-20');
+SELECT * FROM penya;
+3)	Роз’яснення до схеми даних:
+Таблиця "tenants" (Орендарі):
+•	Назва фірми
+•	юридична адреса
+•	рахунок банку
+•	директор
+•	характеристика
+Приміщення:
+•	Номер
+•	Площа
+•	Тип_id
+Тип приміщення
+•	Тип
+•	Ціна за кв. метр
+Оренда:
+•	приміщення_id(FK)
+•	Орендар_id(FK)
+•	Термін оренди 
+•	Дата початку
+•	Дата закінчення
+Рахунок:
+•	rent_id (FK)
+•	Сума до оплати
+•	Дата оплати
+•	Величина податку (20% від орендної плати)
+•	Дата створення
+•	Сума пені
+•	Статус платежу (оплачено/не оплачено)
+Пеня:
+•	Рахунок (зв'язок з сутністю Рахунок) 
+•	Величина пені
+•	Дата нарахування 
+
+Залежності:
+Приміщення - Оренда:
+OneToMany: Кожне приміщення може мати багато оренд, але кожна оренда прив'язана лише до одного приміщення. 
+Орендар - Оренда:
+ OneToMany: Кожен орендар може мати багато оренд, але кожна оренда прив'язана лише до одного орендаря. 
+
+
+Оренда - Рахунок:
+OneToMany: Кожна оренда може мати багато рахунків, але кожен рахунок прив'язаний лише до однієї оренди. 
+Рахунок - Пеня:
+OneToMany: Кожен рахунок може мати багато пеней, але кожна пеня прив'язана лише до одного рахунка.

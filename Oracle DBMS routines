@@ -1,0 +1,119 @@
+Варіант 2
+Завдання: Написати процедуру нарахування оплати за оренду за вказаний місяць вказаному орендарю. Написати процедуру, яка б викликала першу процедуру для всіх орендарів.
+
+Процедура нарахування оплати за оренду за вказаний місяць вказаному орендарю
+1.	Призначення процедури: 
+•	Генерація рахунків за оренду для конкретного орендаря протягом певного місяця.
+2.	Опис алгоритму роботи: 
+•	Отримання необхідних даних про оренду для вказаного орендаря.
+•	Обчислення суми оплати за оренду та податку. 
+•	Визначення дати оплати (початок вказаного місяця). 
+•	Збереження інформації про оплату в базі даних. 
+•	Розрахунок пені за прострочену оплату, якщо така є. 
+3.	Опис вхідних / вихідних параметрів: 
+•	Вхідні параметри: p_tenant_id (ідентифікатор орендаря), p_month (номер місяця). 
+•	Вихідні параметри: Відсутні. 
+4.	Опис внутрішніх ідентифікаторів: 
+•	rent_id, rent_amount, premises_price: ідентифікатор оренди, сума орендної плати, ціна за квадратний метр приміщення. 
+•	rent_payment, tax_amount, payment_amount: сума оплати за оренду, сума податку, загальна сума оплати. payment_date: дата оплати рахунку. 
+•	bill_id: ідентифікатор створеного рахунку. 
+5.	Результати виконання: 
+•	Повідомлення про успішну генерацію рахунків за оренду.
+call generate_rent_bill(7, 4);
+ 
+DELIMITER //
+CREATE PROCEDURE generate_rent_bill(IN p_tenant_id INT, IN p_month INT)
+BEGIN
+    DECLARE rent_id INT;
+    DECLARE rent_amount DECIMAL(10,2);
+    DECLARE premises_price DECIMAL(10,2);
+    DECLARE rent_payment DECIMAL(10,2);
+    DECLARE tax_amount DECIMAL(10,2);
+    DECLARE payment_date DATE;
+    DECLARE payment_amount DECIMAL(10,2);
+    DECLARE overdue_penalty DECIMAL(10,2);
+    DECLARE days_overdue INT;
+    DECLARE bill_id INT; -- Ідентифікатор створеного рахунку
+    DECLARE done INT DEFAULT FALSE;
+    -- Курсор для отримання потрібних даних
+    DECLARE cur CURSOR FOR
+        SELECT r.id, r.lease_term, pt.price_per_sqm
+        FROM rent r
+        JOIN premises p ON r.premise_id = p.id
+        JOIN premises_type pt ON p.premises_type_id = pt.id
+        WHERE r.tenant_id = p_tenant_id;
+    -- Обробник випадку, коли результатів немає
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE; 
+    OPEN cur; 
+    read_loop: LOOP
+        FETCH cur INTO rent_id, rent_amount, premises_price;
+        IF done THEN
+            LEAVE read_loop;
+        END IF; 
+        -- Обчислення суми оплати за оренду
+        SET rent_payment = rent_amount * premises_price; 
+        -- Обчислення суми податку
+        SET tax_amount = rent_payment * 0.2; 
+        -- Обчислення загальної суми оплати
+        SET payment_amount = rent_payment + tax_amount; 
+        -- Обчислення дати оплати (1 число вказаного місяця)
+        SET payment_date = CONCAT(YEAR(CURRENT_DATE), '-', LPAD(p_month, 2, '0'), '-1'); 
+        -- Збереження інформації про оплату в таблиці bill
+        INSERT INTO bill (rent_id, amount_pay, bill_date, tax, payment_date, payment_amount, status)
+        VALUES (rent_id, rent_payment, CONCAT(YEAR(CURRENT_DATE), '-', LPAD(p_month, 2, '0'), '-01'), tax_amount, payment_date, payment_amount, 'Unpaid'); 
+        -- Отримання ідентифікатора створеного рахунку
+        SET bill_id = LAST_INSERT_ID(); 
+        -- Обчислення пені за прострочену оплату
+        SET days_overdue = DATEDIFF(CURRENT_DATE(), payment_date);
+        IF days_overdue > 15 THEN
+            SET overdue_penalty = payment_amount * days_overdue * 0.002; -- 0.2% від суми за кожен день
+            SET payment_amount = payment_amount + overdue_penalty; 
+            -- Запис пені в таблицю penya
+            INSERT INTO penya (bill_id, amount_penalty, penalty_date)
+            VALUES (bill_id, overdue_penalty, CURRENT_DATE());
+        ELSE
+            SET overdue_penalty = 0;
+        END IF; 
+    END LOOP; 
+    CLOSE cur; 
+    SELECT 'Rent bills successfully generated' AS message;
+END //
+DELIMITER ;
+
+Процедура нарахування оплати за оренду усім орендарям
+1.	Призначення процедури: 
+•	Генерація рахунків за оренду для всіх орендарів протягом поточного місяця. 
+2.	Опис алгоритму роботи: 
+•	Отримання ідентифікаторів всіх орендарів. 
+•	Виклик процедури generate_rent_bill для кожного орендаря. 
+3.	Опис вхідних / вихідних параметрів:
+•	Вхідні параметри: Відсутні. 
+•	Вихідні параметри: Відсутні. 
+4.	Опис внутрішніх ідентифікаторів: 
+•	tenant_id: ідентифікатор орендаря. 
+5.	Результати виконання: 
+•	Повідомлення про успішну генерацію рахунків за оренду для всіх орендарів.
+ 
+DELIMITER //
+CREATE PROCEDURE generate_rent_bills_for_all_tenants()
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE tenant_id INT; 
+    -- Курсор для отримання ідентифікаторів всіх орендарів
+    DECLARE cur CURSOR FOR
+        SELECT id FROM tenants; 
+    -- Обробник випадку, коли результатів немає
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE; 
+    OPEN cur; 
+    read_loop: LOOP
+        FETCH cur INTO tenant_id;
+        IF done THEN
+            LEAVE read_loop;
+        END IF; 
+        -- Виклик процедури для генерації рахунків для конкретного орендаря в поточному місяці
+        CALL generate_rent_bill(tenant_id, MONTH(CURRENT_DATE()));
+    END LOOP; 
+    CLOSE cur; 
+    SELECT 'Rent bills generated for all tenants' AS message;
+END //
+DELIMITER ;

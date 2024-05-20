@@ -85,3 +85,40 @@ BEGIN
     END IF;
 END; //
 DELIMITER ;
+
+-- запити для додавання нових полів
+ALTER TABLE premises ADD COLUMN UCR VARCHAR(255);
+ALTER TABLE premises ADD COLUMN DCR DATETIME;
+ALTER TABLE premises ADD COLUMN ULC VARCHAR(255);
+ALTER TABLE premises ADD COLUMN DLC DATETIME;
+
+-- Тригер для заповнення полів під час вставки нового запису 
+DELIMITER //
+CREATE TRIGGER before_insert_premises
+BEFORE INSERT ON premises
+FOR EACH ROW
+BEGIN
+    SET NEW.UCR = USER();
+    SET NEW.DCR = NOW();
+    SET NEW.ULC = USER();
+    SET NEW.DLC = NOW();
+END; //
+DELIMITER ;
+
+-- Тригер для заповнення полів під час оновлення запису 
+DELIMITER //
+
+CREATE TRIGGER before_update_premises
+BEFORE UPDATE ON premises
+FOR EACH ROW
+BEGIN
+    SET NEW.ULC = USER();
+    SET NEW.DLC = NOW();
+END; //
+DELIMITER ;
+--перевірка коректності тригерів
+INSERT INTO premises (number, area, premises_type_id)
+VALUES (505, 130.50, 3);
+UPDATE premises
+SET number = 505, area = 130.75, premises_type_id = 3
+WHERE id = 5;
